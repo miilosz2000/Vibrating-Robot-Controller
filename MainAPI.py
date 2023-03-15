@@ -21,8 +21,6 @@ Update 1:
     Add comments for sections, remove arbitary variables (rewardProduct) 
     Updated reward for if current distance is not closer than closest in that episode (prevent exploration fear)
 
-
-
 To do (future versions): 
     add threshold angle for finding actual orientation : L124 (V3.0) P:VH
     investigate why angle can be beyond 1? is this a concern? P:M
