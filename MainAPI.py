@@ -25,7 +25,6 @@ try:
     import time
     import math
     import numpy as np
-
 except: 
     print("SIM loading failed. Please ensure sim.py is located in the same repository")
 
