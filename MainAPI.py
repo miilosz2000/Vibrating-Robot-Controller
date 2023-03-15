@@ -2,7 +2,7 @@
 """
 API for Coppeliasim 
 
-V3.0 
+V3.1
 
 Capabilities:
     -Train the model to simple orientation Q-Table that can determine how to rotate itself towards the goal
@@ -13,9 +13,20 @@ University of Sheffield
 For the purpose of Master Degree in Aerospace Engineering Final Dissertation
 
 
-API Port: 19990 -- 
+API Port: 19990 
 
 V-REP Folder: C:\Program Files\CoppeliaRobotics\CoppeliaSimEdu
+
+Update 1: 
+    Add comments for sections, remove arbitary variables (rewardProduct) 
+    Updated reward for if current distance is not closer than closest in that episode (prevent exploration fear)
+
+
+
+To do (future versions): 
+    add threshold angle for finding actual orientation : L124 (V3.0) P:VH
+    investigate why angle can be beyond 1? is this a concern? P:M
+    investigate failures, and provide output values to text file (maybe useful?) P:M/L
 """
 
 #test environment 2
@@ -76,6 +87,7 @@ class Agent: #Agent/Controller for the simulation
         self.spaceContainerX = X_Range #array for allowable space in the x range
         self.spaceContainerY  = Y_Range #array for allowable space in the y range
         
+        
         spaceX = self.spaceContainerX[1]-self.spaceContainerX[0] #overall range size for x
         spaceY = self.spaceContainerY[1]-self.spaceContainerY[0] #overall range size for y 
         
@@ -83,116 +95,114 @@ class Agent: #Agent/Controller for the simulation
         self.q_table = np.zeros((int(self.number_of_states), number_of_actions)) #creates a blank Q-Table for training session 
         
     
-    def rewardSystem(self,totalReward, previousLocation,failMark): #reward calculation for each step ################
-        goalLocation = self.goalLoc 
-        currentLocation = sim.simxGetObjectPosition(API.clientID, API.agent, -1, sim.simx_opmode_blocking)
+    def rewardSystem(self,totalReward, previousLocation,failMark): #reward calculation for each step 
+        goalLocation = self.goalLoc #location of goal in the simulation 
+        currentLocation = sim.simxGetObjectPosition(API.clientID, API.agent, -1, sim.simx_opmode_blocking) #use api to find current agent location 
         
-        currentX = currentLocation[1][0]-goalLocation[1][0]
-        currentY = currentLocation[1][1]-goalLocation[1][1]
+        currentX = currentLocation[1][0]-goalLocation[1][0] #current x location of agent
+        currentY = currentLocation[1][1]-goalLocation[1][1] #current y location of agent
         
-        pastX = previousLocation[1][0]-goalLocation[1][0]
-        pastY = previousLocation[1][1]-goalLocation[1][1]
+        pastX = previousLocation[1][0]-goalLocation[1][0] #previous x location of agent
+        pastY = previousLocation[1][1]-goalLocation[1][1] #previous y location of agent
         
-        currentDistance = math.sqrt((currentX)**2+(currentY)**2)
-        pastDistance = math.sqrt((pastX)**2+(pastY)**2)
-        actionReward = 0
-        rewardProducts = []
+        currentDistance = math.sqrt((currentX)**2+(currentY)**2) #total distance between goal and agent
+        pastDistance = math.sqrt((pastX)**2+(pastY)**2) #previous total distance between goal and agent
+        actionReward = 0 #preset reward for action 
         
-        ###goalReward (change for git)
-        if(currentDistance>0.2):
-            Done = False
-            totalReward -= 3 ##penalty for not at distance 
-            actionReward -= 3
+        
+        
+        if(currentDistance>0.2): #is agent less than 0.2m from goal, if not then proceed 
+            Done = False #not within 0.2m
+            totalReward -= 3 #penalty for not at distance 
+            actionReward -= 3 
             
             
             try:
                
-                if(self.L_DIS>self.R_DIS):
-                    distance_ideal = self.R_DIS
+                if(self.L_DIS>self.R_DIS): #determine which is smaller to find optimal angle 
+                    distance_ideal = self.R_DIS #set as closest distance, allow for ideal angle calculation 
                     
                 else:
                     distance_ideal = self.L_DIS
                 
                 ######## Add threshold angle, change the rest to check angle. If smaller than threshold, and a false image, invert the view 
-                ideal_angle = math.acos(1-(0.2**2)/(2*distance_ideal**2))
+                ideal_angle = math.acos(1-(0.2**2)/(2*distance_ideal**2)) #ideal angle, determined by closest possible distance as if the goal is ahead 
                 
-                var = (self.L_DIS**2+self.R_DIS**2-0.2**2)/(2*self.R_DIS*self.L_DIS)
-                if(var>1):#avoids rounding error that leads to beyond 1
+                
+                var = (self.L_DIS**2+self.R_DIS**2-0.2**2)/(2*self.R_DIS*self.L_DIS) #find actual angle, where largest angle would be the ideal angle. Anything below that is sub optimal
+                
+                #####investigate further 
+                if(var>1):#avoids rounding error that leads to beyond 1 
                     var = 1
                 else: pass
-                
-                
-            
-            
+ 
                 actual_angle = math.acos(var)
                 
-                offset = ideal_angle - actual_angle
+                offset = ideal_angle - actual_angle #difference between wanted angle and actual, points for near zero offset
                 
                 
-                if(offset<0.005):
+                if(offset<0.005): #how close is the goal to the center ahead of robot, closer leads to greater reward 
                     totalReward += 20
                     actionReward += 20
-                    rewardProducts.append(4)
+                    
                 elif(0.005<offset<0.01):
                     totalReward += 10
                     actionReward += 10
-                    rewardProducts.append(4)
+                   
                 elif(0.01<offset<0.02):
                      totalReward += 5
                      actionReward += 5
-                     rewardProducts.append(4)
+                     
                 else:
-                    totalReward -= 15
+                    totalReward -= 15 #penalty 
                     actionReward -= 15
-                    rewardProducts.append(4)
+                    
                 
-                if(currentDistance<self.closest_session):#Closer
-                      totalReward += 20
-                      actionReward += 20
-                      self.closest_session = currentDistance
-                      rewardProducts.append(1)
+                if(currentDistance<self.closest_session):#Is this the closest it has been in the episode
+                      totalReward += 8
+                      actionReward += 8
+                      self.closest_session = currentDistance #if so, update closest approach 
+                     
                       
-                elif(currentDistance>self.closest_session):#Further
-                      totalReward -= -45
-                      actionReward -= -45
-                      rewardProducts.append(2)
+                elif(currentDistance>self.closest_session):#Further than previous moments in the session 
+                      totalReward -= -8
+                      actionReward -= -8
+                      
                 else:#No progress
                       totalReward -= 45
                       actionReward -= 45
-                      rewardProducts.append(3)
-                
-                
-                if(self.offset>offset):
+                      
+            
+                if(self.offset>offset): #has offset improved 
                     totalReward += 45 #30
                     actionReward += 45 #30
-                    rewardProducts.append(4)
+                    
                 else:
                     totalReward -= 40
                     actionReward -= 40
-                    rewardProducts.append(4)
-                  
-                
-                self.offset = offset
+
+                self.offset = offset #refresh global offset
                 
                 
             except:
                 print("Exception")
+                #####should provide more info 
                 
-                try:
+                try: # may fail if the first iteration to occur
                     self.offset = offset
                     
                 except:
-                    print("Offset Unavailable::")
+                    print("Offset Unavailable::Should be first iteration only")
                     
                     
 
         else:
-            totalReward += 2000
+            totalReward += 2000 #Maximise long term award, if the goal is reached
             actionReward += 2000
             self.GOAL += 1
             Done = True
         
-        if(failMark==True):
+        if(failMark==True): #Penalise for leaving simulation space 
             totalReward -= 250
             actionReward -= 250
         
@@ -200,26 +210,21 @@ class Agent: #Agent/Controller for the simulation
     
    
     def getState(self):
-        location = sim.simxGetObjectPosition(API.clientID, API.agent, -1, sim.simx_opmode_blocking)
-        self.temp_x.append(location[1][0])
-        self.temp_y.append(location[1][1])     
+        location = sim.simxGetObjectPosition(API.clientID, API.agent, -1, sim.simx_opmode_blocking) #get current location 
+        self.temp_x.append(location[1][0])#temporary location x
+        self.temp_y.append(location[1][1])#temporary location y 
         
-        temp = [location[1][0],location[1][1]]
+        temp = [location[1][0],location[1][1]] #create array for space 
         
-        
-        state = []
-       
-         
-       
-        
-        for item in range(2):
+
+        for item in range(2): #range of states 
             n = 0 #initial state
-            lower_bound = -1
+            lower_bound = self.spaceContainerY[0] #lower bound of space 
             upper_bound = lower_bound + self.spaceInterval
             
             
             
-            stateLocation = temp[item]
+            stateLocation = temp[item] #
             
             while not (lower_bound <= stateLocation <= upper_bound) and n<100: #n set for a max threshold, prevent timing out 
                 n += 1 
