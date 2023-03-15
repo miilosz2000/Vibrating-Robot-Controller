@@ -17,7 +17,7 @@ API Port: 19990 --
 
 V-REP Folder: C:\Program Files\CoppeliaRobotics\CoppeliaSimEdu
 """
-#test environment
+#test environment 1
 try: 
     import sim # Sim file associated with location of the API
     import random 
