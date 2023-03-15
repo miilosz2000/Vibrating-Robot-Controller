@@ -97,7 +97,7 @@ class Agent: #Agent/Controller for the simulation
         actionReward = 0
         rewardProducts = []
         
-        ###goalReward
+        ###goalReward (change for git)
         if(currentDistance>0.2):
             Done = False
             totalReward -= 3 ##penalty for not at distance 
