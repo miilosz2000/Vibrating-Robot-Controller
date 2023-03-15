@@ -27,7 +27,6 @@ To do (future versions):
     investigate failures, and provide output values to text file (maybe useful?) P:M/L
 """
 
-#test environment 2
 
 try: 
     import sim # Sim file associated with location of the API
