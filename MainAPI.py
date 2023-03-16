@@ -17,14 +17,7 @@ API Port: 19990
 
 V-REP Folder: C:\Program Files\CoppeliaRobotics\CoppeliaSimEdu
 
-Update 1: 
-    Add comments for sections, remove arbitary variables (rewardProduct) 
-    Updated reward for if current distance is not closer than closest in that episode (prevent exploration fear)
 
-To do (future versions): 
-    add threshold angle for finding actual orientation : L124 (V3.0) P:VH
-    investigate why angle can be beyond 1? is this a concern? P:M
-    investigate failures, and provide output values to text file (maybe useful?) P:M/L
 """
 
 
@@ -35,6 +28,7 @@ try:
     import time
     import math
     import numpy as np
+    import sys 
 except: 
     print("SIM loading failed. Please ensure sim.py is located in the same repository")
 
@@ -84,9 +78,9 @@ class Agent: #Agent/Controller for the simulation
         self.spaceContainerX = X_Range #array for allowable space in the x range
         self.spaceContainerY  = Y_Range #array for allowable space in the y range
         
-        
-        spaceX = self.spaceContainerX[1]-self.spaceContainerX[0] #overall range size for x
-        spaceY = self.spaceContainerY[1]-self.spaceContainerY[0] #overall range size for y 
+        #### code may be obselete
+        #spaceX = self.spaceContainerX[1]-self.spaceContainerX[0] #overall range size for x
+        #spaceY = self.spaceContainerY[1]-self.spaceContainerY[0] #overall range size for y 
         
         self.number_of_states = 3 #possible states of the robot, 2 is virtually not achievable as it would require perfect alignment. Implemeneted for robustness
         self.q_table = np.zeros((int(self.number_of_states), number_of_actions)) #creates a blank Q-Table for training session 
@@ -99,11 +93,13 @@ class Agent: #Agent/Controller for the simulation
         currentX = currentLocation[1][0]-goalLocation[1][0] #current x location of agent
         currentY = currentLocation[1][1]-goalLocation[1][1] #current y location of agent
         
-        pastX = previousLocation[1][0]-goalLocation[1][0] #previous x location of agent
-        pastY = previousLocation[1][1]-goalLocation[1][1] #previous y location of agent
+        ####code removed for current version, may return for future version so not obselete
+        #pastX = previousLocation[1][0]-goalLocation[1][0] #previous x location of agent
+        #pastY = previousLocation[1][1]-goalLocation[1][1] #previous y location of agent
+        #pastDistance = math.sqrt((pastX)**2+(pastY)**2) #previous total distance between goal and agent
         
         currentDistance = math.sqrt((currentX)**2+(currentY)**2) #total distance between goal and agent
-        pastDistance = math.sqrt((pastX)**2+(pastY)**2) #previous total distance between goal and agent
+        
         actionReward = 0 #preset reward for action 
         
         
@@ -217,41 +213,39 @@ class Agent: #Agent/Controller for the simulation
         for item in range(2): #range of states 
             n = 0 #initial state
             lower_bound = self.spaceContainerY[0] #lower bound of space 
-            upper_bound = lower_bound + self.spaceInterval
+            upper_bound = lower_bound + self.spaceInterval #upper bound of space 
             
             
             
-            stateLocation = temp[item] #
+            stateLocation = temp[item] #checks both x and y variable 
             
             while not (lower_bound <= stateLocation <= upper_bound) and n<100: #n set for a max threshold, prevent timing out 
-                n += 1 
-                lower_bound += self.spaceInterval
+                n += 1 #goes to next state 
+                lower_bound += self.spaceInterval #updates boundaries of current state, as each state has different boundaries
                 upper_bound += self.spaceInterval
             
             if(n<100): 
-                locationL = sim.simxGetObjectPosition(API.clientID, API.LR, -1, sim.simx_opmode_blocking)
-                locationR = sim.simxGetObjectPosition(API.clientID, API.RR, -1, sim.simx_opmode_blocking)
+                locationL = sim.simxGetObjectPosition(API.clientID, API.LR, -1, sim.simx_opmode_blocking)#get distance to left node
+                locationR = sim.simxGetObjectPosition(API.clientID, API.RR, -1, sim.simx_opmode_blocking)#get distance to right node 
                 
-                goalLocation = self.goalLoc
+                goalLocation = self.goalLoc #get location of goal 
                 
-                locL_X = abs(goalLocation[1][0]-locationL[1][0])
+                locL_X = abs(goalLocation[1][0]-locationL[1][0]) #find distance for x and y for both variables (refer to thesis for extra information)
                 locL_Y = abs(goalLocation[1][1]-locationL[1][1])
                 locR_X = abs(goalLocation[1][0]-locationR[1][0])
                 locR_Y = abs(goalLocation[1][1]-locationR[1][1])
                 
+                ####may be obselete
+                # try:
+                #     self.OLD_L_DIS = self.L_DIS #assign current values for future reference 
+                #     self.OLD_R_DIS = self.R_DIS
+                # except:
+                #     pass
                 
-                try:
-                    self.OLD_L_DIS = self.L_DIS
-                    self.OLD_R_DIS = self.R_DIS
-                except:
-                    pass
-                
-                self.L_DIS = abs(math.sqrt((locL_X)**2+(locL_Y)**2))
+                self.L_DIS = abs(math.sqrt((locL_X)**2+(locL_Y)**2)) #find actual distance to goal, determine orientation 
                 self.R_DIS = abs(math.sqrt((locR_X)**2+(locR_Y)**2))
-                
-                
-                
-                if(self.L_DIS==self.R_DIS):
+
+                if(self.L_DIS==self.R_DIS):#set state depending on goal location to robot. this state is virtually impossible, but used for robustness
                     state = 2
                     
                 elif(self.L_DIS>self.R_DIS):
@@ -260,7 +254,7 @@ class Agent: #Agent/Controller for the simulation
                 elif(self.L_DIS<self.R_DIS):
                     state = 1
                     
-            else: state = 10000
+            else: state = 10000 #if out of bound, will crash episode and start next 
 
     
         return location, state
@@ -268,85 +262,91 @@ class Agent: #Agent/Controller for the simulation
     def action_space(self,choice,noise):
 
         if(choice==0):###ACTION LEFT
-            sim.simxCallScriptFunction(API.clientID, 'bristle', sim.sim_scripttype_customizationscript, "speed_left_50", [noise], [], [], bytearray(), sim.simx_opmode_blocking)
-            
-            self.lefts += 1
+        
+            sim.simxCallScriptFunction(API.clientID, 'bristle', sim.sim_scripttype_customizationscript, "speed_left_50", [noise], [], [], bytearray(), sim.simx_opmode_blocking)  
+            self.lefts += 1  #add to left actions in the training episodes
         elif(choice==1):###ACTION RIGHT
+        
             sim.simxCallScriptFunction(API.clientID, 'bristle', sim.sim_scripttype_customizationscript, "speed_right_50", [noise], [], [], bytearray(), sim.simx_opmode_blocking)
-            
             self.rights += 1
         else:
+            ####if incorrect action selected, should never occur 
             print("False action.")
             print(choice)
             print(self.q_table)
-            
             print(np.argmax(self.q_table[self.state_item]))
             print(self.state_item)
+            sys.exit()
             
       
-    def inRangeLocation(self):
+    def inRangeLocation(self): #Is the agent within the defined space? 
         
-        location = sim.simxGetObjectPosition(API.clientID, API.agent, -1, sim.simx_opmode_blocking)
+        location = sim.simxGetObjectPosition(API.clientID, API.agent, -1, sim.simx_opmode_blocking) #find location of agent
 
         
-        X = (self.spaceContainerX[0])<location[1][0]<(self.spaceContainerX[1])
+        X = (self.spaceContainerX[0])<location[1][0]<(self.spaceContainerX[1]) #is it within defined space ?
         Y = (self.spaceContainerY[0])<location[1][1]<(self.spaceContainerY[1])
         
-        if(X and Y): return True
+        if(X and Y): return True #output depending if true or false, should be within limits 
         else: False
     
     def RunCycle(self,episodes,iterations):
         
         
-        for episode in range(episodes): #for each run
-            self.closest_session = 100000
+        for episode in range(episodes): #for each run of training 
+            self.closest_session = 100000 #set a closest_session variable that is the closest point to the goal, this is then compared vs actual and updated
             print("EP: " + str(self.EP))
             print("Starting Simulation: {}".format(episode+1))
             print("------------RUN {}------------".format(episode+1))
+            
             sim.simxStartSimulation(API.clientID, sim.simx_opmode_blocking)#start simulation
+            
             self.temp_x = []
             self.temp_y = []
             self.goalLoc =  sim.simxGetObjectPosition(API.clientID, API.goal, -1, sim.simx_opmode_blocking)
-            totalReward = 0
-            Done = False
-            Fail = False
+            
+            totalReward = 0 #reward for episode is none initially 
+            Done = False #if completed, this is set to true 
+            Fail = False #if any failure, this will be true (for example, out of range)
 
             state_item = 0
             
-            sim.simxCallScriptFunction(API.clientID, 'bristle', sim.sim_scripttype_customizationscript, "sysCall_init",[] , [], [], bytearray(), sim.simx_opmode_blocking)
+            sim.simxCallScriptFunction(API.clientID, 'bristle', sim.sim_scripttype_customizationscript, "sysCall_init",[] , [], [], bytearray(), sim.simx_opmode_blocking) #call initiation function 
             time.sleep(1)
-            for i in range(iterations):
+            
+            for i in range(iterations): #episodes are made of iterations, each iteration is an action of the agent 
                 
                 if(self.inRangeLocation() and not Done):
                     print("             {}%".format(int((i/iterations)*100)))
-                    previousLocation, state_item = self.getState()
+                    
+                    previousLocation, state_item = self.getState() #the location and state prior to the action
                     noise_input = NoiseGenerator() #Generate value for noise
 
-                    if random.uniform(0,1) < self.EP:
+                    if random.uniform(0,1) < self.EP: #decides if agent performs random exploration action or if exploitation action
                         choice = random.randrange(2)
                         
                     else: 
                         try:
-                            choice = np.argmax(self.q_table[state_item])
+                            choice = np.argmax(self.q_table[state_item]) #choose optimal value for state, if available 
    
                         except:
                             print("Failure: Argmax(1)")
                             Fail = True
-                            totalReward, actionReward, Done = self.rewardSystem(totalReward, previousLocation, Fail)
+                            totalReward, actionReward, Done = self.rewardSystem(totalReward, previousLocation, Fail)#provide penalty from failure
                             
                         
-                    self.state_item = state_item    
-                    self.action_space(choice,noise_input)
-                    time.sleep(0.2)    
-                    totalReward, actionReward, Done = self.rewardSystem(totalReward, previousLocation,Fail)
+                    self.state_item = state_item    #set current state
+                    self.action_space(choice,noise_input) #perform the action 
+                    time.sleep(0.2) #sleep for action to be performed 
+                    totalReward, actionReward, Done = self.rewardSystem(totalReward, previousLocation,Fail)#get reward from action 
                     
-                    newLocation, newState = self.getState()
+                    newLocation, newState = self.getState() #update state and location
                     try:
-                        newStateMax = np.max(self.q_table[newState]) #numerical value
-                        self.q_table[state_item,choice] = (1-self.A)*self.q_table[state_item,choice]+self.A*(actionReward + self.G*newStateMax - self.q_table[state_item,choice])
+                        newStateMax = np.max(self.q_table[newState]) #set current optimal action of state
+                        self.q_table[state_item,choice] = (1-self.A)*self.q_table[state_item,choice]+self.A*(actionReward + self.G*newStateMax - self.q_table[state_item,choice])#update Q-Table
                             
                     except:
-                       print("State Failure")
+                       print("State Failure") 
                        
                 else: 
                     print("Not In Range")
@@ -355,7 +355,7 @@ class Agent: #Agent/Controller for the simulation
                 
             sim.simxStopSimulation(API.clientID, sim.simx_opmode_blocking)#stop simulation
             
-            API.TotalGraph.AddData(self.temp_x,self.temp_y,episode)
+            API.TotalGraph.AddData(self.temp_x,self.temp_y,episode) #add episode to graph module 
             self.episodeReward.append(totalReward)
             print("             100%")
             print("Ended Simulation : {}".format(episode+1))
@@ -364,57 +364,10 @@ class Agent: #Agent/Controller for the simulation
             
             time.sleep(4) #Sleep time to allow for simulation to close properly, prevent overload
         
-        Done = False 
+        Done = False  
         
-        
-        print("FINAL RUN")
-        sim.simxStartSimulation(API.clientID, sim.simx_opmode_blocking)#start simulation
-        self.temp_x = []
-        self.temp_y = []
-        self.goalLoc =  sim.simxGetObjectPosition(API.clientID, API.goal, -1, sim.simx_opmode_blocking)
-        totalReward = 0
-        Done = False
-        Fail = False
-        
-        state_item = 0
-        
-        sim.simxCallScriptFunction(API.clientID, 'bristle', sim.sim_scripttype_customizationscript, "sysCall_init",[] , [], [], bytearray(), sim.simx_opmode_blocking)
-        time.sleep(1)
-        for i in range(iterations):
-            if(self.inRangeLocation() and not Done):
-                print("             {}%".format(int((i/iterations)*100)))
-                previousLocation, state_item = self.getState()
-                noise_input = NoiseGenerator() #Generate value for noise
-               
-                try:
-                    choice = np.argmax(self.q_table[state_item])
-                except:
-                    print("Out of Range: E10000")
-                    break        
-              
-                
-                self.action_space(choice,noise_input)
-                time.sleep(0.1)    
-                totalReward, actionReward, Done = self.rewardSystem(totalReward, previousLocation,Fail)
-                
-                newLocation, newState = self.getState()
-               
-            else: 
-                print("Not In Range")
-                break
-        
-            
-        sim.simxStopSimulation(API.clientID, sim.simx_opmode_blocking)#stop simulation
-        
-        API.TotalGraph.AddData(self.temp_x,self.temp_y,episode)
-        self.episodeReward.append(totalReward)
-        print("             100%")
-        print("Ended Simulation : {}".format(episode+1))
-        print("Standby..")
-        
-        
-        time.sleep(4) #Sleep time to allow for simulation to close properly, prevent overload
-    
+        print("Running Final Sim")
+        self.runModel() #run final model
         
         API.SecureClose() #Ensure closure 
         print("Total Rewards: {}".format(self.episodeReward))
@@ -423,24 +376,22 @@ class Agent: #Agent/Controller for the simulation
         
 
 
-    def saveModel(self):
+    def saveModel(self): #save model to the repo
         fileSave = open("model2.txt", "w")
         np.savetxt(fileSave, self.q_table)
         fileSave.close()
-        
-        fileData = open("results.txt","w")
-        
+
     
-    def loadModel(self):
+    def loadModel(self): #load model if not running q_table that are already imported 
         self.file = open("model2.txt", "r")
         self.q_table = np.genfromtxt(self.file)
         print(self.q_table)
-    def runModel(self):
+        
+    def runModel(self): #runs a simulation, with best action for all states
         Done = False 
         
-        print("Starting Final Simulation")
+        print("Starting Simulation")
         
-    
         sim.simxStartSimulation(API.clientID, sim.simx_opmode_blocking)#start simulation
         self.temp_x = []
         self.temp_y = []
@@ -448,8 +399,7 @@ class Agent: #Agent/Controller for the simulation
         totalReward = 0
         Done = False
         Fail = False
-        #q_table = np.zeros()
-        
+
         
         sim.simxCallScriptFunction(API.clientID, 'bristle', sim.sim_scripttype_customizationscript, "sysCall_init",[] , [], [], bytearray(), sim.simx_opmode_blocking)
         time.sleep(1)
@@ -463,7 +413,7 @@ class Agent: #Agent/Controller for the simulation
                 previousLocation, state_item = self.getState()
                 
                 
-                try:
+                try: #always chooses best action for each known state (all states should be known)
                     choice = np.argmax(self.q_table[state_item])
                 except:
                     print("Error E10000")
@@ -529,8 +479,8 @@ class API:  #### Class for the API communication, all API events occur within th
     
         self.TotalGraph.CreatePlot()
 
-EPISODES = 60
-ITERATIONS = 45 ##30 might not be sufficient for goal reaching in most cases 
+EPISODES = 5
+ITERATIONS = 10 ##30 might not be sufficient for goal reaching in most cases 
 SPACE_INTERVAL = 0.1
 X = [-1.5, 1.5]
 Y = [-1.5, 1.5]
@@ -547,7 +497,7 @@ Agent = Agent(SPACE_INTERVAL, EPSILON, ALPHA, GAMMA, X, Y)
  
 if(x=="1"):
    Agent.RunCycle(EPISODES,ITERATIONS) #Run 10 simulations with 25 iterations each 
-else:
+else: #will run a cycle 
     Agent.loadModel()
     Agent.runModel()
     Agent.file.close()
