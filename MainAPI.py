@@ -94,6 +94,7 @@ class Agent: #Agent/Controller for the simulation
         pastY = previousLocation[1][1]-goalLocation[1][1]
         
         currentDistance = math.sqrt((currentX)**2+(currentY)**2)
+        
         pastDistance = math.sqrt((pastX)**2+(pastY)**2)
         actionReward = 0
         rewardProducts = []
@@ -112,9 +113,9 @@ class Agent: #Agent/Controller for the simulation
                     
                 else:
                     distance_ideal = self.L_DIS
-                print(distance_ideal)
-                cc = 0.175^2 + (abs(currentDistance-0.1))**2
-                print(cc)
+                
+                cc = 0.175**2 + (abs(currentDistance-0.1))**2
+                
                 maxPossible = math.sqrt(cc) #maximum value for L to be so that it's below 90 degrees and not in false orientation
                 
                 ######## Add threshold angle, change the rest to check angle. If smaller than threshold, and a false image, invert the view 
@@ -127,16 +128,16 @@ class Agent: #Agent/Controller for the simulation
                 
 
                 actual_angle = math.acos(var)
-                offset = ideal_angle - actual_angle
-                print(offset)
-                if(distance_ideal>maxPossible):
-                    print(1)
+                
+               
+                if(distance_ideal<maxPossible):#is it the other way around
                     pass
                 else:
-                    print(2)
-                    offset = offset + math.pi/2
-               
-                if(offset<0.005):
+                    actual_angle = actual_angle-math.pi
+                offset = ideal_angle - actual_angle
+                #offset = offset + math.pi/2
+                
+                if(0<offset<0.005):
                     totalReward += 20
                     actionReward += 20
                     rewardProducts.append(4)
@@ -153,20 +154,20 @@ class Agent: #Agent/Controller for the simulation
                     actionReward -= 15
                     rewardProducts.append(4)
                 
-                if(currentDistance<self.closest_session):#Closer
-                      totalReward += 20
-                      actionReward += 20
-                      self.closest_session = currentDistance
-                      rewardProducts.append(1)
+                # if(currentDistance<self.closest_session):#Closer
+                #       totalReward += 20
+                #       actionReward += 20
+                #       self.closest_session = currentDistance
+                #       rewardProducts.append(1)
                       
-                elif(currentDistance>self.closest_session):#Further
-                      totalReward -= -45
-                      actionReward -= -45
-                      rewardProducts.append(2)
-                else:#No progress
-                      totalReward -= 45
-                      actionReward -= 45
-                      rewardProducts.append(3)
+                # elif(currentDistance>self.closest_session):#Further
+                #       totalReward -= -45
+                #       actionReward -= -45
+                #       rewardProducts.append(2)
+                # else:#No progress
+                #       totalReward -= 45
+                #       actionReward -= 45
+                #       rewardProducts.append(3)
                 
                 
                 if(self.offset>offset):
@@ -534,7 +535,7 @@ class API:  #### Class for the API communication, all API events occur within th
     
         self.TotalGraph.CreatePlot()
 
-EPISODES = 60
+EPISODES = 40
 ITERATIONS = 45 ##30 might not be sufficient for goal reaching in most cases 
 SPACE_INTERVAL = 0.1
 X = [-1.5, 1.5]
