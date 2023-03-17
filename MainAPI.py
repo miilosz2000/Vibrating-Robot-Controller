@@ -98,7 +98,13 @@ class Agent: #Agent/Controller for the simulation
         #pastY = previousLocation[1][1]-goalLocation[1][1] #previous y location of agent
         #pastDistance = math.sqrt((pastX)**2+(pastY)**2) #previous total distance between goal and agent
         
-        currentDistance = math.sqrt((currentX)**2+(currentY)**2) #total distance between goal and agent
+
+        currentDistance = math.sqrt((currentX)**2+(currentY)**2)
+        
+        pastDistance = math.sqrt((pastX)**2+(pastY)**2)
+        actionReward = 0
+        rewardProducts = []
+
         
         actionReward = 0 #preset reward for action 
         
@@ -118,6 +124,10 @@ class Agent: #Agent/Controller for the simulation
                 else:
                     distance_ideal = self.L_DIS
                 
+                cc = 0.175**2 + (abs(currentDistance-0.1))**2
+                
+                maxPossible = math.sqrt(cc) #maximum value for L to be so that it's below 90 degrees and not in false orientation
+                
                 ######## Add threshold angle, change the rest to check angle. If smaller than threshold, and a false image, invert the view 
                 ideal_angle = math.acos(1-(0.2**2)/(2*distance_ideal**2)) #ideal angle, determined by closest possible distance as if the goal is ahead 
                 
@@ -128,13 +138,21 @@ class Agent: #Agent/Controller for the simulation
                 if(var>1):#avoids rounding error that leads to beyond 1 
                     var = 1
                 else: pass
- 
+
+                
+
                 actual_angle = math.acos(var)
                 
-                offset = ideal_angle - actual_angle #difference between wanted angle and actual, points for near zero offset
+               
+                if(distance_ideal<maxPossible):#is it the other way around
+                    pass
+                else:
+                    actual_angle = actual_angle-math.pi
+                offset = ideal_angle - actual_angle
+                #offset = offset + math.pi/2
                 
-                
-                if(offset<0.005): #how close is the goal to the center ahead of robot, closer leads to greater reward 
+                if(0<offset<0.005):
+
                     totalReward += 20
                     actionReward += 20
                     
@@ -151,22 +169,25 @@ class Agent: #Agent/Controller for the simulation
                     actionReward -= 15
                     
                 
-                if(currentDistance<self.closest_session):#Is this the closest it has been in the episode
-                      totalReward += 8
-                      actionReward += 8
-                      self.closest_session = currentDistance #if so, update closest approach 
-                     
+
+                # if(currentDistance<self.closest_session):#Closer
+                #       totalReward += 20
+                #       actionReward += 20
+                #       self.closest_session = currentDistance
+                #       rewardProducts.append(1)
                       
-                elif(currentDistance>self.closest_session):#Further than previous moments in the session 
-                      totalReward -= -8
-                      actionReward -= -8
-                      
-                else:#No progress
-                      totalReward -= 45
-                      actionReward -= 45
-                      
-            
-                if(self.offset>offset): #has offset improved 
+                # elif(currentDistance>self.closest_session):#Further
+                #       totalReward -= -45
+                #       actionReward -= -45
+                #       rewardProducts.append(2)
+                # else:#No progress
+                #       totalReward -= 45
+                #       actionReward -= 45
+                #       rewardProducts.append(3)
+                
+                
+                if(self.offset>offset):
+
                     totalReward += 45 #30
                     actionReward += 45 #30
                     
@@ -479,8 +500,10 @@ class API:  #### Class for the API communication, all API events occur within th
     
         self.TotalGraph.CreatePlot()
 
-EPISODES = 5
-ITERATIONS = 10 ##30 might not be sufficient for goal reaching in most cases 
+
+EPISODES = 40
+ITERATIONS = 45 ##30 might not be sufficient for goal reaching in most cases 
+
 SPACE_INTERVAL = 0.1
 X = [-1.5, 1.5]
 Y = [-1.5, 1.5]
