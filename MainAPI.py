@@ -112,6 +112,10 @@ class Agent: #Agent/Controller for the simulation
                     
                 else:
                     distance_ideal = self.L_DIS
+                print(distance_ideal)
+                cc = 0.175^2 + (abs(currentDistance-0.1))**2
+                print(cc)
+                maxPossible = math.sqrt(cc) #maximum value for L to be so that it's below 90 degrees and not in false orientation
                 
                 ######## Add threshold angle, change the rest to check angle. If smaller than threshold, and a false image, invert the view 
                 ideal_angle = math.acos(1-(0.2**2)/(2*distance_ideal**2))
@@ -121,14 +125,17 @@ class Agent: #Agent/Controller for the simulation
                     var = 1
                 else: pass
                 
-                
-            
-            
+
                 actual_angle = math.acos(var)
-                
                 offset = ideal_angle - actual_angle
-                
-                
+                print(offset)
+                if(distance_ideal>maxPossible):
+                    print(1)
+                    pass
+                else:
+                    print(2)
+                    offset = offset + math.pi/2
+               
                 if(offset<0.005):
                     totalReward += 20
                     actionReward += 20
